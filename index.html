@@ -405,15 +405,23 @@
                     
                     const badge = item.isNew ? `<div class="absolute top-2 left-2 bg-pink-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md z-10">חדש!</div>` : '';
 
+                    // HTML משודרג שכולל תמונה ממוזערת! 
+                    // ה-onerror דואג שאם אין תמונה (למשל קובץ זיפ), הוא יסתיר את התמונה ויציג את הדיב של האייקון במקום
                     htmlBuilder += `
                         <a href="${item.link}" target="_blank" class="tile-card glass rounded-3xl cursor-pointer flex flex-col relative h-full aspect-[4/5] animate-pop group" style="animation-delay: ${delay}s">
                             ${badge}
                             <div class="h-2 w-full bg-gradient-to-r ${colorClass} rounded-t-3xl opacity-80 group-hover:opacity-100 transition"></div>
-                            <div class="p-6 flex flex-col items-center flex-grow justify-center text-center">
-                                <div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br ${colorClass} flex items-center justify-center mb-5 shadow-lg group-hover:rotate-12 transition">
+                            <div class="p-6 flex flex-col items-center flex-grow justify-center text-center w-full">
+                                
+                                <img src="${item.thumb}" loading="lazy" 
+                                     class="w-full h-32 md:h-40 object-cover rounded-xl mb-4 shadow-lg group-hover:scale-105 transition" 
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="thumbnail">
+                                
+                                <div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br ${colorClass} items-center justify-center mb-5 shadow-lg group-hover:rotate-12 transition" style="display: none;">
                                     <span class="text-3xl md:text-4xl filter drop-shadow-md">${icon}</span>
                                 </div>
-                                <h3 class="font-bold text-white text-sm md:text-md mb-2 line-clamp-3 leading-snug">${item.name}</h3>
+                                
+                                <h3 class="font-bold text-white text-sm md:text-md mb-2 line-clamp-3 leading-snug w-full">${item.name}</h3>
                             </div>
                         </a>`;
                 }
