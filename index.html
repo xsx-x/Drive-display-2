@@ -22,7 +22,6 @@
             overflow-x: hidden;
         }
         
-        /* רקע אנימטיבי */
         .animated-bg {
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -56,12 +55,9 @@
             border-color: var(--secondary);
         }
 
-        /* סקרולר מותאם */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
         ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
-        
-        /* סקרולר מוסתר לשורת החדשים */
         .hide-scroll::-webkit-scrollbar { display: none; }
         .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -70,13 +66,30 @@
             100% { opacity: 1; transform: scale(1) translateY(0); }
         }
         .animate-pop { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        /* אנימציה לסיבוב של מסך הטעינה */
+        @keyframes spinSlow { 100% { transform: rotate(360deg); } }
+        .spin-slow { animation: spinSlow 3s linear infinite; }
     </style>
 </head>
 <body>
 
     <div class="animated-bg"></div>
 
-    <!-- מסך התחברות (סיסמה) -->
+    <!-- מסך טעינה ראשונית (מוסתר כברירת מחדל) -->
+    <div id="firstLoadMessage" class="hidden fixed inset-0 z-[60] flex items-center justify-center glass backdrop-blur-2xl bg-black/80 transition-opacity duration-500">
+        <div class="text-center p-8 max-w-md bg-white/5 rounded-3xl border border-white/10 shadow-2xl animate-pop">
+            <div class="text-7xl mb-6 spin-slow inline-block">⏳</div>
+            <h2 class="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500 mb-4">טוען את המאגר...</h2>
+            <p class="text-gray-300 leading-relaxed text-sm md:text-base">
+                מוריד ומסדר אלפי סרטים ומשחקים למכשיר שלך. 
+                <br><br>
+                <span class="text-green-400 font-bold bg-green-900/30 px-3 py-1 rounded-lg">פעולה זו לוקחת קצת זמן בפעם הראשונה, אבל בפעמים הבאות האתר ייטען בשבריר שנייה! 🚀</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- מסך התחברות -->
     <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center glass backdrop-blur-xl transition-opacity duration-500">
         <div class="glass p-8 md:p-12 rounded-3xl text-center max-w-md w-full mx-4 border-t border-l border-white/20 shadow-2xl animate-pop">
             <div class="text-6xl mb-6 animate-bounce">🎬🎮</div>
@@ -96,7 +109,6 @@
 
     <!-- תוכן האתר -->
     <div id="mainContent" class="hidden flex-col min-h-screen">
-        
         <header class="glass sticky top-0 z-40 border-b border-white/10">
             <div class="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div class="flex items-center gap-3 text-center md:text-right">
@@ -116,29 +128,20 @@
         </header>
 
         <main class="container mx-auto px-4 py-8 flex-grow">
-            
-            <!-- סרט נע: נוספו לאחרונה (מוסתר אם אין) -->
             <div id="newItemsSection" class="mb-10 hidden animate-pop">
                 <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><span class="text-2xl animate-pulse">🔥</span> נוספו לאחרונה</h2>
-                <div id="carouselTrack" class="flex gap-4 overflow-x-auto hide-scroll pb-4 snap-x">
-                    <!-- יתמלא אוטומטית -->
-                </div>
+                <div id="carouselTrack" class="flex gap-4 overflow-x-auto hide-scroll pb-4 snap-x"></div>
             </div>
 
-            <!-- אזור ניווט / פירורי לחם -->
             <div class="glass rounded-2xl p-4 mb-8 flex items-center gap-2 overflow-x-auto whitespace-nowrap scroll-smooth">
-                <div id="breadcrumbsContainer" class="flex items-center gap-2 text-sm md:text-base font-medium">
-                    טוען נתונים...
-                </div>
+                <div id="breadcrumbsContainer" class="flex items-center gap-2 text-sm md:text-base font-medium">טוען נתונים...</div>
             </div>
 
-            <!-- כותרת תוצאות חיפוש -->
             <div id="searchResultsHeader" class="hidden mb-6 text-center animate-pop">
                 <h3 class="text-2xl font-bold">תוצאות חיפוש: <span id="searchCount" class="text-pink-400"></span></h3>
                 <button onclick="clearSearch()" class="mt-2 px-6 py-2 glass rounded-full hover:bg-white/10 text-sm transition text-pink-300">חזור לתיקיות ✕</button>
             </div>
 
-            <!-- הגריד של הקבצים -->
             <div id="explorerGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"></div>
         </main>
 
@@ -148,10 +151,8 @@
     </div>
 
     <script>
-        const SITE_PASSWORD = "123"; // סיסמה שונתה זמנית לבדיקה
+        const SITE_PASSWORD = "123"; 
         const EXPLORER_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSgUqLHEGqyAlO0fcbSFuuXnWn5F-3WoUBkV31yFqWlH6iWXAd_rbUY0fq3-PbMoUcxidwjtM19-1AB/pub?gid=1418058253&single=true&output=csv';
-        
-        // הנתיב לקובץ הלוקאלי שלך בגיטהאב
         const LOCAL_CSV_URL = './DriveFiles.csv'; 
 
         let fileSystem = { name: "ראשי", type: "folder", children: {} };
@@ -167,7 +168,7 @@
                     document.getElementById('loginScreen').classList.add('hidden');
                     document.getElementById('mainContent').classList.remove('hidden');
                     document.getElementById('mainContent').classList.add('flex');
-                    initDataLoad(); // קורא לפונקציית הטעינה החכמה החדשה
+                    initDataLoad();
                 }, 500);
             } else {
                 const err = document.getElementById('errorMsg');
@@ -176,80 +177,70 @@
             }
         }
 
-        function showSkeletons() {
-            const grid = document.getElementById('explorerGrid');
-            grid.innerHTML = Array(15).fill().map((_, i) => `<div class="glass rounded-2xl p-5 aspect-[4/5] animate-pulse"></div>`).join('');
-        }
-
-        // --- התחלת מערכת המטמון (Cache API) ---
-        
         async function saveToCache(dataString) {
             try {
-                const cache = await caches.open('movies-cache-v1');
+                const cache = await caches.open('movies-cache-csv-v1');
                 await cache.put('/saved-movies.csv', new Response(dataString));
-            } catch (e) {
-                console.error("שגיאה בשמירה למטמון:", e);
-            }
+            } catch (e) { console.error(e); }
         }
 
         async function getFromCache() {
             try {
-                const cache = await caches.open('movies-cache-v1');
+                const cache = await caches.open('movies-cache-csv-v1');
                 const response = await cache.match('/saved-movies.csv');
                 if (response) return await response.text();
                 return null;
-            } catch (e) {
-                return null;
-            }
+            } catch (e) { return null; }
         }
 
-        // הפונקציה הראשית שמנהלת את סדר הטעינה
         async function initDataLoad() {
-            showSkeletons();
-            
-            // שלב 1: בודק אם יש כבר נתונים שמורים בדפדפן (אפס זמן טעינה)
+            // בודק אם יש נתונים שמורים בדפדפן
             let cachedCSV = await getFromCache();
             
             if (cachedCSV) {
-                buildFileSystem(cachedCSV); // בונה את האתר מיד
-                fetchUpdatesInBackground(cachedCSV); // בודק ברקע אם יש עדכונים מ-Google Sheets
+                // יש מטמון -> אין צורך במסך טעינה, טוען מיד
+                buildFileSystem(cachedCSV);
+                fetchUpdatesInBackground(cachedCSV); 
             } else {
-                // שלב 2: אם אין נתונים בדפדפן (כניסה ראשונה), נוריד את הקובץ מגיטהאב
+                // אין מטמון (כניסה ראשונה) -> מציג את מסך ההודעה היפה שבנינו
+                const loadMsg = document.getElementById('firstLoadMessage');
+                loadMsg.classList.remove('hidden');
+
                 try {
                     const localResponse = await fetch(LOCAL_CSV_URL);
                     if(localResponse.ok) {
                         cachedCSV = await localResponse.text();
-                        buildFileSystem(cachedCSV); // בונה את האתר
-                        await saveToCache(cachedCSV); // שומר לדפדפן לפעמים הבאות
-                        fetchUpdatesInBackground(cachedCSV); // בודק מול גוגל אם חסר משהו
+                        buildFileSystem(cachedCSV);
+                        await saveToCache(cachedCSV); 
+                        fetchUpdatesInBackground(cachedCSV);
                     } else {
-                        // אם הקובץ לא נמצא בגיטהאב, מושך ישירות מגוגל
-                        fetchUpdatesInBackground(""); 
+                        // אם אין קובץ בגיטהאב, מוריד מגוגל
+                        const googleRes = await fetch(EXPLORER_CSV_URL);
+                        cachedCSV = await googleRes.text();
+                        buildFileSystem(cachedCSV);
+                        await saveToCache(cachedCSV);
                     }
                 } catch (e) {
-                    fetchUpdatesInBackground("");
+                    console.error("שגיאה בטעינה ראשונית", e);
+                } finally {
+                    // מעלים את מסך הטעינה ברגע שסיים
+                    loadMsg.style.opacity = '0';
+                    setTimeout(() => loadMsg.classList.add('hidden'), 500);
                 }
             }
         }
 
-        // שלב 3: משיכת נתונים מ-Google Sheets ברקע
         async function fetchUpdatesInBackground(oldCsvData) {
             try {
                 const response = await fetch(EXPLORER_CSV_URL);
                 const newCsvData = await response.text();
-                
-                // אם מה שיש בגוגל שונה ממה שיש בדפדפן - מעדכן את האתר והמטמון
                 if (newCsvData && newCsvData !== oldCsvData) {
                     await saveToCache(newCsvData);
                     buildFileSystem(newCsvData);
-                    console.log("המאגר עודכן בהצלחה מ-Google Sheets!");
+                    console.log("מאגר עודכן ברקע מ-Google Sheets!");
                 }
-            } catch (error) { 
-                console.error("שגיאה בבדיקת עדכונים מ-Google Sheets:", error); 
-            }
+            } catch (error) { console.error(error); }
         }
-
-        // --- סוף מערכת המטמון ---
 
         function buildFileSystem(csvText) {
             const lines = csvText.split('\n');
@@ -262,6 +253,7 @@
             for (let i = 1; i < lines.length; i++) {
                 if (!lines[i] || !lines[i].trim()) continue;
                 const row = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                if(row.length < 2) continue;
                 
                 const pathStr = row[0] ? row[0].replace(/"/g, '').trim() : '';
                 const fileName = row[1] ? row[1].replace(/"/g, '').trim() : '';
@@ -281,7 +273,6 @@
                 }
 
                 const fileObj = { name: fileName, type: type, link: link, path: pathStr, date: creationDate, isNew: isNew };
-                
                 if(isNew && type !== "folder") newArrivals.push(fileObj);
 
                 const folders = pathStr.split('/');
@@ -319,7 +310,6 @@
 
         function renderCarousel() {
             if(newArrivals.length === 0) return;
-            
             document.getElementById('newItemsSection').classList.remove('hidden');
             const track = document.getElementById('carouselTrack');
             track.innerHTML = '';
@@ -378,7 +368,6 @@
 
         function drawGrid(items) {
             const gridDiv = document.getElementById('explorerGrid');
-            
             if (!items || items.length === 0) { 
                 gridDiv.innerHTML = '<div class="col-span-full py-20 text-center text-gray-400 text-2xl animate-pulse">אין פה כלום... 🏜️</div>'; return; 
             }
@@ -389,9 +378,7 @@
                 return a.name.localeCompare(b.name);
             });
 
-            // שיפור ביצועים: במקום לכתוב ל-HTML מאות פעמים, אוספים הכל למחרוזת אחת
             let htmlBuilder = '';
-
             items.forEach((item, i) => {
                 const delay = i > 20 ? 0 : i * 0.05; 
                 
@@ -429,12 +416,9 @@
                         </a>`;
                 }
             });
-
-            // כותבים ל-HTML פעם אחת בלבד - חוסך המון משאבים לדפדפן
             gridDiv.innerHTML = htmlBuilder;
         }
 
-        // --- מנוע החיפוש החכם והמהיר ---
         function handleSearch() {
             const searchInput = document.getElementById('searchInput');
             if (!searchInput) return;
@@ -454,22 +438,17 @@
             searchHeader.classList.remove('hidden');
             document.getElementById('searchCount').innerText = "מחפש...";
 
-            // פיצול מילות החיפוש - מאפשר למצוא "ספיידרמן 2" גם אם השם הוא "ספיידרמן הסרט 2"
             const searchWords = searchTerm.split(' ').filter(word => word.length > 0);
             let results = [];
             
             for (let i = 0; i < allSearchableItems.length; i++) {
                 const item = allSearchableItems[i];
                 let isMatch = true;
-                
-                // בודק שכל המילים שחיפשנו נמצאות בשם הקובץ או בנתיב שלו
                 for (let j = 0; j < searchWords.length; j++) {
                     if (!item.searchIndex.includes(searchWords[j])) {
-                        isMatch = false;
-                        break;
+                        isMatch = false; break;
                     }
                 }
-                
                 if (isMatch) results.push(item);
             }
 
@@ -484,13 +463,10 @@
             drawGrid(resultsToDisplay);
         }
 
-        // מניעת תקיעות - מפעיל את החיפוש רק חצי שנייה אחרי שהמשתמש סיים להקליד
         let searchTimeout = null;
         document.getElementById('searchInput').addEventListener('input', function() {
             clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => { 
-                requestAnimationFrame(handleSearch); 
-            }, 300); 
+            searchTimeout = setTimeout(() => { requestAnimationFrame(handleSearch); }, 300); 
         });
 
         function clearSearch(render = true) {
