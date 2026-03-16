@@ -147,339 +147,357 @@
         </footer>
     </div>
 
-    <script>const SITE_PASSWORD = "123"; 
-const EXPLORER_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSgUqLHEGqyAlO0fcbSFuuXnWn5F-3WoUBkV31yFqWlH6iWXAd_rbUY0fq3-PbMoUcxidwjtM19-1AB/pub?gid=1418058253&single=true&output=csv';
+    <script>
+        const SITE_PASSWORD = "123"; // סיסמה שונתה זמנית לבדיקה
+        const EXPLORER_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSgUqLHEGqyAlO0fcbSFuuXnWn5F-3WoUBkV31yFqWlH6iWXAd_rbUY0fq3-PbMoUcxidwjtM19-1AB/pub?gid=1418058253&single=true&output=csv';
+        
+        // הנתיב לקובץ הלוקאלי שלך בגיטהאב
+        const LOCAL_CSV_URL = './DriveFiles.csv'; 
 
-// נתיב לקובץ הלוקאלי שלך בגיטהאב לאינדקס ראשוני
-const LOCAL_CSV_URL = './DriveFiles.csv'; 
+        let fileSystem = { name: "ראשי", type: "folder", children: {} };
+        let currentPathArr = []; 
+        let allSearchableItems = []; 
+        let newArrivals = []; 
 
-let fileSystem = { name: "ראשי", type: "folder", children: {} };
-let currentPathArr = []; 
-let allSearchableItems = []; 
-let newArrivals = []; 
-
-function checkPassword() {
-    const input = document.getElementById('passInput').value;
-    if (input === SITE_PASSWORD) {
-        document.getElementById('loginScreen').style.opacity = '0';
-        setTimeout(() => {
-            document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('mainContent').classList.remove('hidden');
-            document.getElementById('mainContent').classList.add('flex');
-            initDataLoad();
-        }, 500);
-    } else {
-        const err = document.getElementById('errorMsg');
-        err.classList.remove('hidden'); err.classList.add('animate-bounce');
-        setTimeout(() => err.classList.remove('animate-bounce'), 1000);
-    }
-}
-
-function showSkeletons() {
-    const grid = document.getElementById('explorerGrid');
-    grid.innerHTML = Array(15).fill().map((_, i) => `<div class="glass rounded-2xl p-5 aspect-[4/5] animate-pulse"></div>`).join('');
-}
-
-// פונקציית הטעינה החכמה - Cache Then Network
-async function initDataLoad() {
-    showSkeletons();
-    
-    // 1. קודם כל נבדוק אם יש מידע שמור בזיכרון הדפדפן
-    let cachedCSV = localStorage.getItem('moviesCacheData');
-    
-    if (cachedCSV) {
-        // אם יש מטמון, נבנה מיד את האתר! המשתמש לא מחכה.
-        buildFileSystem(cachedCSV);
-        fetchUpdatesInBackground(cachedCSV); // נבדוק ברקע אם יש עדכונים
-    } else {
-        // 2. אם אין מטמון, ננסה לטעון את הקובץ המקומי המהיר שלך (DriveFiles.csv)
-        try {
-            const localResponse = await fetch(LOCAL_CSV_URL);
-            if(localResponse.ok) {
-                cachedCSV = await localResponse.text();
-                buildFileSystem(cachedCSV);
-                localStorage.setItem('moviesCacheData', cachedCSV);
-                fetchUpdatesInBackground(cachedCSV);
+        function checkPassword() {
+            const input = document.getElementById('passInput').value;
+            if (input === SITE_PASSWORD) {
+                document.getElementById('loginScreen').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('mainContent').classList.remove('hidden');
+                    document.getElementById('mainContent').classList.add('flex');
+                    initDataLoad(); // קורא לפונקציית הטעינה החכמה החדשה
+                }, 500);
             } else {
-                // אם הקובץ הלוקאלי לא נמצא, נמשוך ישירות מגוגל
-                fetchUpdatesInBackground(""); 
-            }
-        } catch (e) {
-            fetchUpdatesInBackground("");
-        }
-    }
-}
-
-// משיכת נתונים מגוגל שיטס ברקע
-async function fetchUpdatesInBackground(oldCsvData) {
-    try {
-        const response = await fetch(EXPLORER_CSV_URL);
-        const newCsvData = await response.text();
-        
-        // אם המידע השתנה (נוספו שורות), נעדכן את האתר והמטמון
-        if (newCsvData !== oldCsvData) {
-            localStorage.setItem('moviesCacheData', newCsvData);
-            buildFileSystem(newCsvData);
-            console.log("המאגר עודכן ברקע מ-Google Sheets!");
-        }
-    } catch (error) { 
-        console.error("שגיאה בבדיקת עדכונים:", error); 
-    }
-}
-
-function buildFileSystem(csvText) {
-    const lines = csvText.split('\n');
-    fileSystem = { name: "ראשי", type: "folder", children: {} }; 
-    allSearchableItems = [];
-    newArrivals = [];
-    
-    const today = new Date();
-
-    for (let i = 1; i < lines.length; i++) {
-        if (!lines[i] || !lines[i].trim()) continue;
-        // פיצול יעיל יותר ל-CSV
-        const row = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-        if(row.length < 2) continue;
-        
-        const pathStr = row[0] ? row[0].replace(/"/g, '').trim() : '';
-        const fileName = row[1] ? row[1].replace(/"/g, '').trim() : '';
-        const type = row[2] ? row[2].replace(/"/g, '').trim() : '';
-        const link = row[3] ? row[3].replace(/"/g, '').trim() : '';
-        const creationDate = row[4] ? row[4].replace(/"/g, '').trim() : '';
-        
-        if(!pathStr || !fileName) continue;
-
-        let isNew = false;
-        if(creationDate) {
-            const fileDate = new Date(creationDate);
-            if(!isNaN(fileDate)) {
-                const diffDays = Math.ceil(Math.abs(today - fileDate) / (1000 * 60 * 60 * 24));
-                if(diffDays <= 10) isNew = true;
+                const err = document.getElementById('errorMsg');
+                err.classList.remove('hidden'); err.classList.add('animate-bounce');
+                setTimeout(() => err.classList.remove('animate-bounce'), 1000);
             }
         }
 
-        const fileObj = { name: fileName, type: type, link: link, path: pathStr, date: creationDate, isNew: isNew };
-        if(isNew && type !== "folder") newArrivals.push(fileObj);
-
-        const folders = pathStr.split('/');
-        let currentNode = fileSystem;
-        let currentPathBuild = [];
-        let startIndex = folders[0] === "ראשי" ? 1 : 0;
-        if(folders[0] === "ראשי") currentPathBuild.push("ראשי");
-
-        for (let j = startIndex; j < folders.length; j++) {
-            let folderName = folders[j];
-            currentPathBuild.push(folderName);
-            if (!currentNode.children[folderName]) {
-                currentNode.children[folderName] = { name: folderName, type: "folder", pathArr: [...currentPathBuild], children: {} };
-            }
-            currentNode = currentNode.children[folderName];
+        function showSkeletons() {
+            const grid = document.getElementById('explorerGrid');
+            grid.innerHTML = Array(15).fill().map((_, i) => `<div class="glass rounded-2xl p-5 aspect-[4/5] animate-pulse"></div>`).join('');
         }
-        currentNode.children[fileName] = fileObj;
-    }
-    
-    function collectAllItems(node) {
-        for (const key in node.children) {
-            const child = node.children[key];
-            // יצירת אינדקס חיפוש פשוט שכולל את הנתיב והשם
-            child.searchIndex = (child.name + " " + (child.path || "")).toLowerCase();
-            if (child.type !== "folder") {
-                allSearchableItems.push(child);
-            }
-            if (child.type === "folder") collectAllItems(child);
-        }
-    }
-    collectAllItems(fileSystem);
-    
-    renderCarousel();
-    renderCurrentFolder();
-}
 
-function renderCarousel() {
-    if(newArrivals.length === 0) return;
-    document.getElementById('newItemsSection').classList.remove('hidden');
-    const track = document.getElementById('carouselTrack');
-    track.innerHTML = '';
-    
-    newArrivals.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 15).forEach(item => {
-        let icon = "🎬"; let colorClass = "from-blue-500 to-indigo-600";
-        if(item.type === "משחק/תוכנה") { icon = "🎮"; colorClass = "from-green-400 to-emerald-600"; }
+        // --- התחלת מערכת המטמון (Cache API) ---
         
-        track.innerHTML += `
-            <a href="${item.link}" target="_blank" class="flex-shrink-0 w-48 glass rounded-2xl p-4 flex flex-col items-center text-center hover:scale-105 transition snap-center relative">
-                <div class="absolute -top-2 -right-2 bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg z-10 animate-pulse">חדש!</div>
-                <div class="w-14 h-14 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center mb-3 shadow-lg">
-                    <span class="text-2xl">${icon}</span>
-                </div>
-                <h4 class="text-sm font-bold text-white line-clamp-2">${item.name}</h4>
-            </a>`;
-    });
-}
-
-function navigateTo(index) {
-    clearSearch(false);
-    if (index === -1) currentPathArr = []; else currentPathArr = currentPathArr.slice(0, index + 1);
-    renderCurrentFolder();
-}
-
-function jumpToFolderFromSearch(pathString) {
-    const pathArray = pathString.split('||');
-    if(pathArray[0] === "ראשי") pathArray.shift();
-    currentPathArr = pathArray;
-    clearSearch(false);
-    renderCurrentFolder();
-}
-
-function renderCurrentFolder() {
-    let currentNode = fileSystem;
-    for (let folder of currentPathArr) { 
-        if(currentNode.children && currentNode.children[folder]) {
-            currentNode = currentNode.children[folder]; 
+        async function saveToCache(dataString) {
+            try {
+                const cache = await caches.open('movies-cache-v1');
+                await cache.put('/saved-movies.csv', new Response(dataString));
+            } catch (e) {
+                console.error("שגיאה בשמירה למטמון:", e);
+            }
         }
-    }
-    
-    const breadcrumbsDiv = document.getElementById('breadcrumbsContainer');
-    let breadcrumbsHTML = `<button onclick="navigateTo(-1)" class="hover:bg-white/20 bg-white/10 px-4 py-2 rounded-xl flex items-center gap-2 transition duration-300 shadow-lg"><span class="text-xl">🏠</span> ראשי</button>`;
-    
-    currentPathArr.forEach((folder, index) => {
-        breadcrumbsHTML += `<span class="text-pink-500 font-bold mx-1">❯</span><button onclick="navigateTo(${index})" class="hover:bg-white/20 bg-transparent px-3 py-2 rounded-xl transition">${folder}</button>`;
-    });
-    breadcrumbsDiv.innerHTML = breadcrumbsHTML;
-    
-    if(currentNode.children) {
-        drawGrid(Object.values(currentNode.children));
-    } else {
-        drawGrid([]);
-    }
-}
 
-function drawGrid(items) {
-    const gridDiv = document.getElementById('explorerGrid');
-    gridDiv.innerHTML = '';
-    
-    if (!items || items.length === 0) { 
-        gridDiv.innerHTML = '<div class="col-span-full py-20 text-center text-gray-400 text-2xl animate-pulse">אין פה כלום... 🏜️</div>'; return; 
-    }
-    
-    items.sort((a, b) => {
-        if (a.type === "folder" && b.type !== "folder") return -1;
-        if (a.type !== "folder" && b.type === "folder") return 1;
-        return a.name.localeCompare(b.name);
-    });
+        async function getFromCache() {
+            try {
+                const cache = await caches.open('movies-cache-v1');
+                const response = await cache.match('/saved-movies.csv');
+                if (response) return await response.text();
+                return null;
+            } catch (e) {
+                return null;
+            }
+        }
 
-    // שיפור ביצועים: במקום להוסיף ל-DOM בכל איטרציה, בונים מחרוזת אחת גדולה
-    let htmlBuilder = '';
-
-    items.forEach((item, i) => {
-        const delay = i > 20 ? 0 : i * 0.05; 
-        
-        if (item.type === "folder") {
-            const pathStr = item.pathArr ? item.pathArr.join('||') : item.name;
-            const safePathStr = pathStr.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-            const itemCount = Object.keys(item.children || {}).length;
+        // הפונקציה הראשית שמנהלת את סדר הטעינה
+        async function initDataLoad() {
+            showSkeletons();
             
-            htmlBuilder += `
-                <div onclick="jumpToFolderFromSearch('${safePathStr}')" class="tile-card glass rounded-3xl p-6 cursor-pointer flex flex-col items-center justify-center text-center aspect-square group animate-pop" style="animation-delay: ${delay}s">
-                    <div class="w-20 h-20 mb-4 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center group-hover:scale-110 transition">
-                        <span class="text-5xl drop-shadow-lg">📁</span>
-                    </div>
-                    <span class="font-extrabold text-white line-clamp-2 text-lg drop-shadow-md">${item.name}</span>
-                    <span class="text-xs text-purple-300 mt-2 bg-purple-900/50 px-3 py-1 rounded-full">${itemCount} פריטים</span>
-                </div>`;
-        } else {
-            let icon = "📄"; let colorClass = "from-gray-500 to-gray-700";
-            if(item.type === "וידאו") { icon = "🎬"; colorClass = "from-blue-500 to-indigo-600"; }
-            if(item.type === "משחק/תוכנה") { icon = "🎮"; colorClass = "from-green-400 to-emerald-600"; }
-            if(item.type === "שמע") { icon = "🎧"; colorClass = "from-yellow-400 to-orange-500"; }
+            // שלב 1: בודק אם יש כבר נתונים שמורים בדפדפן (אפס זמן טעינה)
+            let cachedCSV = await getFromCache();
             
-            const badge = item.isNew ? `<div class="absolute top-2 left-2 bg-pink-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md z-10">חדש!</div>` : '';
+            if (cachedCSV) {
+                buildFileSystem(cachedCSV); // בונה את האתר מיד
+                fetchUpdatesInBackground(cachedCSV); // בודק ברקע אם יש עדכונים מ-Google Sheets
+            } else {
+                // שלב 2: אם אין נתונים בדפדפן (כניסה ראשונה), נוריד את הקובץ מגיטהאב
+                try {
+                    const localResponse = await fetch(LOCAL_CSV_URL);
+                    if(localResponse.ok) {
+                        cachedCSV = await localResponse.text();
+                        buildFileSystem(cachedCSV); // בונה את האתר
+                        await saveToCache(cachedCSV); // שומר לדפדפן לפעמים הבאות
+                        fetchUpdatesInBackground(cachedCSV); // בודק מול גוגל אם חסר משהו
+                    } else {
+                        // אם הקובץ לא נמצא בגיטהאב, מושך ישירות מגוגל
+                        fetchUpdatesInBackground(""); 
+                    }
+                } catch (e) {
+                    fetchUpdatesInBackground("");
+                }
+            }
+        }
 
-            htmlBuilder += `
-                <a href="${item.link}" target="_blank" class="tile-card glass rounded-3xl cursor-pointer flex flex-col relative h-full aspect-[4/5] animate-pop group" style="animation-delay: ${delay}s">
-                    ${badge}
-                    <div class="h-2 w-full bg-gradient-to-r ${colorClass} rounded-t-3xl opacity-80 group-hover:opacity-100 transition"></div>
-                    <div class="p-6 flex flex-col items-center flex-grow justify-center text-center">
-                        <div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br ${colorClass} flex items-center justify-center mb-5 shadow-lg group-hover:rotate-12 transition">
-                            <span class="text-3xl md:text-4xl filter drop-shadow-md">${icon}</span>
+        // שלב 3: משיכת נתונים מ-Google Sheets ברקע
+        async function fetchUpdatesInBackground(oldCsvData) {
+            try {
+                const response = await fetch(EXPLORER_CSV_URL);
+                const newCsvData = await response.text();
+                
+                // אם מה שיש בגוגל שונה ממה שיש בדפדפן - מעדכן את האתר והמטמון
+                if (newCsvData && newCsvData !== oldCsvData) {
+                    await saveToCache(newCsvData);
+                    buildFileSystem(newCsvData);
+                    console.log("המאגר עודכן בהצלחה מ-Google Sheets!");
+                }
+            } catch (error) { 
+                console.error("שגיאה בבדיקת עדכונים מ-Google Sheets:", error); 
+            }
+        }
+
+        // --- סוף מערכת המטמון ---
+
+        function buildFileSystem(csvText) {
+            const lines = csvText.split('\n');
+            fileSystem = { name: "ראשי", type: "folder", children: {} }; 
+            allSearchableItems = [];
+            newArrivals = [];
+            
+            const today = new Date();
+
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i] || !lines[i].trim()) continue;
+                const row = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                
+                const pathStr = row[0] ? row[0].replace(/"/g, '').trim() : '';
+                const fileName = row[1] ? row[1].replace(/"/g, '').trim() : '';
+                const type = row[2] ? row[2].replace(/"/g, '').trim() : '';
+                const link = row[3] ? row[3].replace(/"/g, '').trim() : '';
+                const creationDate = row[4] ? row[4].replace(/"/g, '').trim() : '';
+                
+                if(!pathStr || !fileName) continue;
+
+                let isNew = false;
+                if(creationDate) {
+                    const fileDate = new Date(creationDate);
+                    if(!isNaN(fileDate)) {
+                        const diffDays = Math.ceil(Math.abs(today - fileDate) / (1000 * 60 * 60 * 24));
+                        if(diffDays <= 10) isNew = true; 
+                    }
+                }
+
+                const fileObj = { name: fileName, type: type, link: link, path: pathStr, date: creationDate, isNew: isNew };
+                
+                if(isNew && type !== "folder") newArrivals.push(fileObj);
+
+                const folders = pathStr.split('/');
+                let currentNode = fileSystem;
+                let currentPathBuild = [];
+                let startIndex = folders[0] === "ראשי" ? 1 : 0;
+                if(folders[0] === "ראשי") currentPathBuild.push("ראשי");
+
+                for (let j = startIndex; j < folders.length; j++) {
+                    let folderName = folders[j];
+                    currentPathBuild.push(folderName);
+                    if (!currentNode.children[folderName]) {
+                        currentNode.children[folderName] = { name: folderName, type: "folder", pathArr: [...currentPathBuild], children: {} };
+                    }
+                    currentNode = currentNode.children[folderName];
+                }
+                currentNode.children[fileName] = fileObj;
+            }
+            
+            function collectAllItems(node) {
+                for (const key in node.children) {
+                    const child = node.children[key];
+                    child.searchIndex = (child.name + " " + (child.path || "")).toLowerCase();
+                    if (child.type !== "folder") {
+                        allSearchableItems.push(child);
+                    }
+                    if (child.type === "folder") collectAllItems(child);
+                }
+            }
+            collectAllItems(fileSystem);
+            
+            renderCarousel();
+            renderCurrentFolder();
+        }
+
+        function renderCarousel() {
+            if(newArrivals.length === 0) return;
+            
+            document.getElementById('newItemsSection').classList.remove('hidden');
+            const track = document.getElementById('carouselTrack');
+            track.innerHTML = '';
+            
+            newArrivals.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 15).forEach(item => {
+                let icon = "🎬"; let colorClass = "from-blue-500 to-indigo-600";
+                if(item.type === "משחק/תוכנה") { icon = "🎮"; colorClass = "from-green-400 to-emerald-600"; }
+                
+                track.innerHTML += `
+                    <a href="${item.link}" target="_blank" class="flex-shrink-0 w-48 glass rounded-2xl p-4 flex flex-col items-center text-center hover:scale-105 transition snap-center relative">
+                        <div class="absolute -top-2 -right-2 bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg z-10 animate-pulse">חדש!</div>
+                        <div class="w-14 h-14 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center mb-3 shadow-lg">
+                            <span class="text-2xl">${icon}</span>
                         </div>
-                        <h3 class="font-bold text-white text-sm md:text-md mb-2 line-clamp-3 leading-snug">${item.name}</h3>
-                    </div>
-                </a>`;
+                        <h4 class="text-sm font-bold text-white line-clamp-2">${item.name}</h4>
+                    </a>`;
+            });
         }
-    });
 
-    gridDiv.innerHTML = htmlBuilder;
-}
+        function navigateTo(index) {
+            clearSearch(false);
+            if (index === -1) currentPathArr = []; else currentPathArr = currentPathArr.slice(0, index + 1);
+            renderCurrentFolder();
+        }
 
-// מנוע חיפוש משופר!
-function handleSearch() {
-    const searchInput = document.getElementById('searchInput');
-    if (!searchInput) return;
-    
-    const searchTerm = searchInput.value.toLowerCase().trim();
-    const breadcrumbs = document.getElementById('breadcrumbsContainer');
-    const searchHeader = document.getElementById('searchResultsHeader');
+        function jumpToFolderFromSearch(pathString) {
+            const pathArray = pathString.split('||');
+            if(pathArray[0] === "ראשי") pathArray.shift();
+            currentPathArr = pathArray;
+            clearSearch(false);
+            renderCurrentFolder();
+        }
 
-    if (searchTerm === "") {
-        breadcrumbs.parentElement.classList.remove('hidden'); 
-        searchHeader.classList.add('hidden');
-        renderCurrentFolder(); 
-        return;
-    }
-    
-    breadcrumbs.parentElement.classList.add('hidden'); 
-    searchHeader.classList.remove('hidden');
-    document.getElementById('searchCount').innerText = "מחפש...";
-
-    // פיצול מילות החיפוש. כך "ספיידרמן 2" ימצא את "ספיידרמן הסרט 2"
-    const searchWords = searchTerm.split(' ').filter(word => word.length > 0);
-    
-    let results = [];
-    
-    for (let i = 0; i < allSearchableItems.length; i++) {
-        const item = allSearchableItems[i];
-        let isMatch = true;
-        
-        // מוודא שכל מילה שחיפשנו נמצאת בשם הקובץ או בנתיב שלו
-        for (let j = 0; j < searchWords.length; j++) {
-            if (!item.searchIndex.includes(searchWords[j])) {
-                isMatch = false;
-                break;
+        function renderCurrentFolder() {
+            let currentNode = fileSystem;
+            for (let folder of currentPathArr) { 
+                if(currentNode.children && currentNode.children[folder]) {
+                    currentNode = currentNode.children[folder]; 
+                }
+            }
+            
+            const breadcrumbsDiv = document.getElementById('breadcrumbsContainer');
+            let breadcrumbsHTML = `<button onclick="navigateTo(-1)" class="hover:bg-white/20 bg-white/10 px-4 py-2 rounded-xl flex items-center gap-2 transition duration-300 shadow-lg"><span class="text-xl">🏠</span> ראשי</button>`;
+            
+            currentPathArr.forEach((folder, index) => {
+                breadcrumbsHTML += `<span class="text-pink-500 font-bold mx-1">❯</span><button onclick="navigateTo(${index})" class="hover:bg-white/20 bg-transparent px-3 py-2 rounded-xl transition">${folder}</button>`;
+            });
+            breadcrumbsDiv.innerHTML = breadcrumbsHTML;
+            
+            if(currentNode.children) {
+                drawGrid(Object.values(currentNode.children));
+            } else {
+                drawGrid([]);
             }
         }
-        
-        if (isMatch) {
-            results.push(item);
+
+        function drawGrid(items) {
+            const gridDiv = document.getElementById('explorerGrid');
+            
+            if (!items || items.length === 0) { 
+                gridDiv.innerHTML = '<div class="col-span-full py-20 text-center text-gray-400 text-2xl animate-pulse">אין פה כלום... 🏜️</div>'; return; 
+            }
+            
+            items.sort((a, b) => {
+                if (a.type === "folder" && b.type !== "folder") return -1;
+                if (a.type !== "folder" && b.type === "folder") return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            // שיפור ביצועים: במקום לכתוב ל-HTML מאות פעמים, אוספים הכל למחרוזת אחת
+            let htmlBuilder = '';
+
+            items.forEach((item, i) => {
+                const delay = i > 20 ? 0 : i * 0.05; 
+                
+                if (item.type === "folder") {
+                    const pathStr = item.pathArr ? item.pathArr.join('||') : item.name;
+                    const safePathStr = pathStr.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                    const itemCount = Object.keys(item.children || {}).length;
+                    
+                    htmlBuilder += `
+                        <div onclick="jumpToFolderFromSearch('${safePathStr}')" class="tile-card glass rounded-3xl p-6 cursor-pointer flex flex-col items-center justify-center text-center aspect-square group animate-pop" style="animation-delay: ${delay}s">
+                            <div class="w-20 h-20 mb-4 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center group-hover:scale-110 transition">
+                                <span class="text-5xl drop-shadow-lg">📁</span>
+                            </div>
+                            <span class="font-extrabold text-white line-clamp-2 text-lg drop-shadow-md">${item.name}</span>
+                            <span class="text-xs text-purple-300 mt-2 bg-purple-900/50 px-3 py-1 rounded-full">${itemCount} פריטים</span>
+                        </div>`;
+                } else {
+                    let icon = "📄"; let colorClass = "from-gray-500 to-gray-700";
+                    if(item.type === "וידאו") { icon = "🎬"; colorClass = "from-blue-500 to-indigo-600"; }
+                    if(item.type === "משחק/תוכנה") { icon = "🎮"; colorClass = "from-green-400 to-emerald-600"; }
+                    if(item.type === "שמע") { icon = "🎧"; colorClass = "from-yellow-400 to-orange-500"; }
+                    
+                    const badge = item.isNew ? `<div class="absolute top-2 left-2 bg-pink-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md z-10">חדש!</div>` : '';
+
+                    htmlBuilder += `
+                        <a href="${item.link}" target="_blank" class="tile-card glass rounded-3xl cursor-pointer flex flex-col relative h-full aspect-[4/5] animate-pop group" style="animation-delay: ${delay}s">
+                            ${badge}
+                            <div class="h-2 w-full bg-gradient-to-r ${colorClass} rounded-t-3xl opacity-80 group-hover:opacity-100 transition"></div>
+                            <div class="p-6 flex flex-col items-center flex-grow justify-center text-center">
+                                <div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br ${colorClass} flex items-center justify-center mb-5 shadow-lg group-hover:rotate-12 transition">
+                                    <span class="text-3xl md:text-4xl filter drop-shadow-md">${icon}</span>
+                                </div>
+                                <h3 class="font-bold text-white text-sm md:text-md mb-2 line-clamp-3 leading-snug">${item.name}</h3>
+                            </div>
+                        </a>`;
+                }
+            });
+
+            // כותבים ל-HTML פעם אחת בלבד - חוסך המון משאבים לדפדפן
+            gridDiv.innerHTML = htmlBuilder;
         }
-    }
 
-    const MAX_RESULTS = 100;
-    const totalFound = results.length;
-    const resultsToDisplay = results.slice(0, MAX_RESULTS);
+        // --- מנוע החיפוש החכם והמהיר ---
+        function handleSearch() {
+            const searchInput = document.getElementById('searchInput');
+            if (!searchInput) return;
+            
+            const searchTerm = searchInput.value.toLowerCase().trim(); 
+            const breadcrumbs = document.getElementById('breadcrumbsContainer');
+            const searchHeader = document.getElementById('searchResultsHeader');
 
-    let countText = `${totalFound} תוצאות`;
-    if (totalFound > MAX_RESULTS) countText += ` (מציג ${MAX_RESULTS}. נא למקד את החיפוש)`;
-    document.getElementById('searchCount').innerText = countText;
+            if (searchTerm === "") {
+                breadcrumbs.parentElement.classList.remove('hidden'); 
+                searchHeader.classList.add('hidden');
+                renderCurrentFolder(); 
+                return;
+            }
+            
+            breadcrumbs.parentElement.classList.add('hidden'); 
+            searchHeader.classList.remove('hidden');
+            document.getElementById('searchCount').innerText = "מחפש...";
 
-    drawGrid(resultsToDisplay);
-}
+            // פיצול מילות החיפוש - מאפשר למצוא "ספיידרמן 2" גם אם השם הוא "ספיידרמן הסרט 2"
+            const searchWords = searchTerm.split(' ').filter(word => word.length > 0);
+            let results = [];
+            
+            for (let i = 0; i < allSearchableItems.length; i++) {
+                const item = allSearchableItems[i];
+                let isMatch = true;
+                
+                // בודק שכל המילים שחיפשנו נמצאות בשם הקובץ או בנתיב שלו
+                for (let j = 0; j < searchWords.length; j++) {
+                    if (!item.searchIndex.includes(searchWords[j])) {
+                        isMatch = false;
+                        break;
+                    }
+                }
+                
+                if (isMatch) results.push(item);
+            }
 
-// Debounce לחיפוש למניעת תקיעות בהקלדה
-let searchTimeout = null;
-document.getElementById('searchInput').addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => { 
-        // שימוש ב-requestAnimationFrame כדי לא לתקוע את ה-UI
-        requestAnimationFrame(handleSearch); 
-    }, 300); 
-});
+            const MAX_RESULTS = 100;
+            const totalFound = results.length;
+            const resultsToDisplay = results.slice(0, MAX_RESULTS);
 
-function clearSearch(render = true) {
-    document.getElementById('searchInput').value = "";
-    document.getElementById('breadcrumbsContainer').parentElement.classList.remove('hidden');
-    document.getElementById('searchResultsHeader').classList.add('hidden');
-    if(render) renderCurrentFolder();
+            let countText = `${totalFound} תוצאות`;
+            if (totalFound > MAX_RESULTS) countText += ` (מציג ${MAX_RESULTS}. נא למקד את החיפוש)`;
+            document.getElementById('searchCount').innerText = countText;
 
+            drawGrid(resultsToDisplay);
+        }
+
+        // מניעת תקיעות - מפעיל את החיפוש רק חצי שנייה אחרי שהמשתמש סיים להקליד
+        let searchTimeout = null;
+        document.getElementById('searchInput').addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => { 
+                requestAnimationFrame(handleSearch); 
+            }, 300); 
+        });
+
+        function clearSearch(render = true) {
+            document.getElementById('searchInput').value = "";
+            document.getElementById('breadcrumbsContainer').parentElement.classList.remove('hidden');
+            document.getElementById('searchResultsHeader').classList.add('hidden');
+            if(render) renderCurrentFolder();
         }
     </script>
 </body>
