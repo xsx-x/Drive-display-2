@@ -247,7 +247,6 @@
             fileSystem = { name: "ראשי", type: "folder", children: {} }; 
             allSearchableItems = [];
             newArrivals = [];
-            
             const today = new Date();
 
             for (let i = 1; i < lines.length; i++) {
@@ -260,6 +259,8 @@
                 const type = row[2] ? row[2].replace(/"/g, '').trim() : '';
                 const link = row[3] ? row[3].replace(/"/g, '').trim() : '';
                 const creationDate = row[4] ? row[4].replace(/"/g, '').trim() : '';
+                // שליפת התמונה מהעמודה השישית
+                const thumb = row[5] ? row[5].replace(/"/g, '').trim() : '';
                 
                 if(!pathStr || !fileName) continue;
 
@@ -272,7 +273,8 @@
                     }
                 }
 
-                const fileObj = { name: fileName, type: type, link: link, path: pathStr, date: creationDate, isNew: isNew };
+                // הוספנו את thumb לאובייקט
+                const fileObj = { name: fileName, type: type, link: link, path: pathStr, date: creationDate, isNew: isNew, thumb: thumb };
                 if(isNew && type !== "folder") newArrivals.push(fileObj);
 
                 const folders = pathStr.split('/');
@@ -291,7 +293,7 @@
                 }
                 currentNode.children[fileName] = fileObj;
             }
-            
+            // ... המשך הפונקציה (collectAllItems) רגיל
             function collectAllItems(node) {
                 for (const key in node.children) {
                     const child = node.children[key];
