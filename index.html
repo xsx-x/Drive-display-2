@@ -243,7 +243,6 @@
             const today = new Date();
 
             data.forEach(row => {
-                // שולפים את הנתונים לפי השמות המדויקים שמופיעים ב-JSON שלך
                 const pathStr = row["נתיב_תיקיה"] ? row["נתיב_תיקיה"].toString().trim() : '';
                 const fileName = row["שם_קובץ"] ? row["שם_קובץ"].toString().trim() : '';
                 const type = row["סוג"] ? row["סוג"].toString().trim() : '';
@@ -253,8 +252,11 @@
                 
                 if(!pathStr || !fileName) return;
 
+                // זיהוי האם השורה הנוכחית היא בעצם תיקייה
+                const isFolder = (type === "folder" || type === "תיקיה");
+
                 let isNew = false;
-                if(creationDate) {
+                if(creationDate && !isFolder) {
                     const fileDate = new Date(creationDate);
                     if(!isNaN(fileDate)) {
                         const diffDays = Math.ceil(Math.abs(today - fileDate) / (1000 * 60 * 60 * 24));
@@ -262,34 +264,67 @@
                     }
                 }
 
-                const fileObj = { name: fileName, type: type, link: link, path: pathStr, date: creationDate, isNew: isNew, thumb: thumb };
-                if(isNew && type !== "folder" && type !== "תיקיה") newArrivals.push(fileObj);
-
                 const folders = pathStr.split('/');
                 let currentNode = fileSystem;
                 let currentPathBuild = [];
                 let startIndex = folders[0] === "ראשי" ? 1 : 0;
                 if(folders[0] === "ראשי") currentPathBuild.push("ראשי");
 
+                // ניווט לתוך הנתיב (ויצירת תיקיות אם הן חסרות)
                 for (let j = startIndex; j < folders.length; j++) {
                     let folderName = folders[j];
                     currentPathBuild.push(folderName);
+                    
                     if (!currentNode.children[folderName]) {
-                        currentNode.children[folderName] = { name: folderName, type: "folder", pathArr: [...currentPathBuild], children: {} };
+                        currentNode.children[folderName] = { 
+                            name: folderName, 
+                            type: "folder", 
+                            pathArr: [...currentPathBuild], 
+                            children: {} // פה אנחנו מוודאים שלתיקייה יש "בטן"
+                        };
                     }
                     currentNode = currentNode.children[folderName];
                 }
-                currentNode.children[fileName] = fileObj;
+
+                // הגענו לתיקיית האב. עכשיו נכניס את הקובץ (או התיקייה) עצמה
+                if (isFolder) {
+                    currentPathBuild.push(fileName);
+                    if (!currentNode.children[fileName]) {
+                        currentNode.children[fileName] = { 
+                            name: fileName, 
+                            type: "folder", 
+                            pathArr: [...currentPathBuild], 
+                            children: {} // חובה לתת לתיקייה children כדי שלא תקרוס
+                        };
+                    }
+                } else {
+                    // זה קובץ אמיתי (סרט, משחק וכו')
+                    const fileObj = { 
+                        name: fileName, 
+                        type: type, 
+                        link: link, 
+                        path: pathStr, 
+                        date: creationDate, 
+                        isNew: isNew, 
+                        thumb: thumb 
+                    };
+                    currentNode.children[fileName] = fileObj;
+                    if(isNew) newArrivals.push(fileObj);
+                }
             });
 
+            // איסוף כל הקבצים למנוע החיפוש
             function collectAllItems(node) {
                 for (const key in node.children) {
                     const child = node.children[key];
                     child.searchIndex = (child.name + " " + (child.path || "")).toLowerCase();
+                    
                     if (child.type !== "folder" && child.type !== "תיקיה") {
                         allSearchableItems.push(child);
+                    } else {
+                        // אם זו תיקייה - ניכנס פנימה לאסוף את הילדים שלה
+                        collectAllItems(child);
                     }
-                    if (child.type === "folder" || child.type === "תיקיה") collectAllItems(child);
                 }
             }
             collectAllItems(fileSystem);
@@ -297,7 +332,6 @@
             renderCarousel();
             renderCurrentFolder();
         }
-
         function renderCarousel() {
             if(newArrivals.length === 0) return;
             document.getElementById('newItemsSection').classList.remove('hidden');
