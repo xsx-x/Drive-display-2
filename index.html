@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מאגר הסרטים והמשחקים הכשרים</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800&display=swap');
+        
+        :root { 
+            --primary: #8b5cf6; 
+            --secondary: #ec4899;
+            --bg-color: #0f172a;
+        }
+        
+        body { 
+            font-family: 'Rubik', sans-serif; 
+            background-color: var(--bg-color); 
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* רקע אנימטיבי */
+        .animated-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(45deg, #0f172a, #1e1b4b, #312e81, #1e1b4b);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            z-index: -2;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .tile-card { 
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .tile-card:hover { 
+            transform: translateY(-8px) scale(1.02); 
+            box-shadow: 0 15px 30px rgba(139, 92, 246, 0.3); 
+            border-color: var(--secondary);
+        }
+
+        /* סקרולר מותאם */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+        
+        /* סקרולר מוסתר לשורת החדשים */
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.9) translateY(20px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-pop { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    </style>
+</head>
+<body>
+
+    <div class="animated-bg"></div>
+
+    <!-- מסך התחברות (סיסמה) -->
+    <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center glass backdrop-blur-xl transition-opacity duration-500">
+        <div class="glass p-8 md:p-12 rounded-3xl text-center max-w-md w-full mx-4 border-t border-l border-white/20 shadow-2xl animate-pop">
+            <div class="text-6xl mb-6 animate-bounce">🎬🎮</div>
+            <h2 class="text-3xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">ברוכים הבאים</h2>
+            <p class="text-gray-300 mb-8">הזן את סיסמת הגישה למאגר</p>
+            
+            <input type="password" id="passInput" placeholder="סיסמה..." 
+                   class="w-full px-5 py-4 rounded-xl bg-black/30 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 mb-6 text-center text-xl"
+                   onkeypress="if(event.key === 'Enter') checkPassword()">
+            
+            <button onclick="checkPassword()" class="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-bold py-4 rounded-xl shadow-lg transform transition hover:scale-105 active:scale-95">
+                כניסה למאגר
+            </button>
+            <p id="errorMsg" class="text-red-400 mt-4 text-sm hidden font-bold">סיסמה שגויה, נסה שוב!</p>
+        </div>
+    </div>
+
+    <!-- תוכן האתר -->
+    <div id="mainContent" class="hidden flex-col min-h-screen">
+        
+        <header class="glass sticky top-0 z-40 border-b border-white/10">
+            <div class="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-3 text-center md:text-right">
+                    <span class="text-4xl">🍿</span>
+                    <div>
+                        <h1 class="text-2xl md:text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">מאגר סרטים ומשחקים</h1>
+                        <p class="text-xs text-purple-200 tracking-wider">מתעדכן אוטומטית • חינם לחלוטין</p>
+                    </div>
+                </div>
+                
+                <div class="relative w-full md:w-1/3">
+                    <span class="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400">🔍</span>
+                    <input type="text" id="searchInput" placeholder="חיפוש סרט או משחק..." 
+                           class="w-full pl-4 pr-12 py-3 rounded-full glass focus:bg-white/10 border border-white/20 outline-none transition text-white placeholder-gray-300 shadow-inner">
+                </div>
+            </div>
+        </header>
+
+        <main class="container mx-auto px-4 py-8 flex-grow">
+            
+            <!-- סרט נע: נוספו לאחרונה (מוסתר אם אין) -->
+            <div id="newItemsSection" class="mb-10 hidden animate-pop">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><span class="text-2xl animate-pulse">🔥</span> נוספו לאחרונה</h2>
+                <div id="carouselTrack" class="flex gap-4 overflow-x-auto hide-scroll pb-4 snap-x">
+                    <!-- יתמלא אוטומטית -->
+                </div>
+            </div>
+
+            <!-- אזור ניווט / פירורי לחם -->
+            <div class="glass rounded-2xl p-4 mb-8 flex items-center gap-2 overflow-x-auto whitespace-nowrap scroll-smooth">
+                <div id="breadcrumbsContainer" class="flex items-center gap-2 text-sm md:text-base font-medium">
+                    טוען נתונים...
+                </div>
+            </div>
+
+            <!-- כותרת תוצאות חיפוש -->
+            <div id="searchResultsHeader" class="hidden mb-6 text-center animate-pop">
+                <h3 class="text-2xl font-bold">תוצאות חיפוש: <span id="searchCount" class="text-pink-400"></span></h3>
+                <button onclick="clearSearch()" class="mt-2 px-6 py-2 glass rounded-full hover:bg-white/10 text-sm transition text-pink-300">חזור לתיקיות ✕</button>
+            </div>
+
+            <!-- הגריד של הקבצים -->
+            <div id="explorerGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"></div>
+        </main>
+
+        <footer class="mt-auto glass border-t border-white/10 text-center py-6 text-sm text-gray-400">
+            <p>נבנה באהבה ❤️ | על ידי myylbwt@gmail.com</p>
+        </footer>
+    </div>
+
+    <script>
+        const SITE_PASSWORD = "123"; // סיסמה שונתה זמנית לבדיקה
+        const EXPLORER_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSgUqLHEGqyAlO0fcbSFuuXnWn5F-3WoUBkV31yFqWlH6iWXAd_rbUY0fq3-PbMoUcxidwjtM19-1AB/pub?gid=1418058253&single=true&output=csv';
+
+        let fileSystem = { name: "ראשי", type: "folder", children: {} };
+        let currentPathArr = []; 
+        let allSearchableItems = []; 
+        let newArrivals = []; // שמירת החדשים
+
+        function checkPassword() {
+            const input = document.getElementById('passInput').value;
+            if (input === SITE_PASSWORD) {
+                document.getElementById('loginScreen').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('mainContent').classList.remove('hidden');
+                    document.getElementById('mainContent').classList.add('flex');
+                    fetchExplorerData();
+                }, 500);
+            } else {
+                const err = document.getElementById('errorMsg');
+                err.classList.remove('hidden'); err.classList.add('animate-bounce');
+                setTimeout(() => err.classList.remove('animate-bounce'), 1000);
+            }
+        }
+
+        function showSkeletons() {
+            const grid = document.getElementById('explorerGrid');
+            grid.innerHTML = Array(15).fill().map((_, i) => `<div class="glass rounded-2xl p-5 aspect-[4/5] animate-pulse"></div>`).join('');
+        }
+
+        async function fetchExplorerData() {
+            showSkeletons();
+            try {
+                const response = await fetch(EXPLORER_CSV_URL);
+                const data = await response.text();
+                buildFileSystem(data);
+            } catch (error) { console.error("שגיאה:", error); }
+        }
+
+        function buildFileSystem(csvText) {
+            const lines = csvText.split('\n');
+            fileSystem.children = {}; 
+            allSearchableItems = [];
+            newArrivals = [];
+            
+            const today = new Date();
+
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i] || !lines[i].trim()) continue;
+                const row = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                
+                const pathStr = row[0] ? row[0].replace(/"/g, '').trim() : '';
+                const fileName = row[1] ? row[1].replace(/"/g, '').trim() : '';
+                const type = row[2] ? row[2].replace(/"/g, '').trim() : '';
+                const link = row[3] ? row[3].replace(/"/g, '').trim() : '';
+                const creationDate = row[4] ? row[4].replace(/"/g, '').trim() : '';
+                
+                if(!pathStr || !fileName) continue;
+
+                // בדיקה אם הקובץ חדש (הועלה ב-10 ימים האחרונים)
+                let isNew = false;
+                if(creationDate) {
+                    const fileDate = new Date(creationDate);
+                    const diffDays = Math.ceil(Math.abs(today - fileDate) / (1000 * 60 * 60 * 24));
+                    if(diffDays <= 10) isNew = true; // אפשר לשנות ל-7 או כמה שתרצה
+                }
+
+                const fileObj = { name: fileName, type: type, link: link, path: pathStr, date: creationDate, isNew: isNew };
+                
+                if(isNew && type !== "folder") newArrivals.push(fileObj);
+
+                const folders = pathStr.split('/');
+                let currentNode = fileSystem;
+                let currentPathBuild = [];
+                let startIndex = folders[0] === "ראשי" ? 1 : 0;
+                if(folders[0] === "ראשי") currentPathBuild.push("ראשי");
+
+                for (let j = startIndex; j < folders.length; j++) {
+                    let folderName = folders[j];
+                    currentPathBuild.push(folderName);
+                    if (!currentNode.children[folderName]) {
+                        currentNode.children[folderName] = { name: folderName, type: "folder", pathArr: [...currentPathBuild], children: {} };
+                    }
+                    currentNode = currentNode.children[folderName];
+                }
+                currentNode.children[fileName] = fileObj;
+            }
+            
+            function collectAllItems(node, collection) {
+                for (const key in node.children) {
+                    const child = node.children[key];
+                    child.searchIndex = (child.name + " " + (child.path || "")).toLowerCase();
+                    collection.push(child);
+                    if (child.type === "folder") collectAllItems(child, collection);
+                }
+            }
+            collectAllItems(fileSystem, allSearchableItems);
+            
+            renderCarousel();
+            renderCurrentFolder();
+        }
+
+        // ציור סרט נע של החדשים
+        function renderCarousel() {
+            if(newArrivals.length === 0) return;
+            
+            document.getElementById('newItemsSection').classList.remove('hidden');
+            const track = document.getElementById('carouselTrack');
+            track.innerHTML = '';
+            
+            // מיין מהחדש לישן, וקח את ה-15 הכי חדשים
+            newArrivals.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 15).forEach(item => {
+                let icon = "🎬"; let colorClass = "from-blue-500 to-indigo-600";
+                if(item.type === "משחק/תוכנה") { icon = "🎮"; colorClass = "from-green-400 to-emerald-600"; }
+                
+                track.innerHTML += `
+                    <a href="${item.link}" target="_blank" class="flex-shrink-0 w-48 glass rounded-2xl p-4 flex flex-col items-center text-center hover:scale-105 transition snap-center relative">
+                        <div class="absolute -top-2 -right-2 bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg z-10 animate-pulse">חדש!</div>
+                        <div class="w-14 h-14 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center mb-3 shadow-lg">
+                            <span class="text-2xl">${icon}</span>
+                        </div>
+                        <h4 class="text-sm font-bold text-white line-clamp-2">${item.name}</h4>
+                    </a>`;
+            });
+        }
+
+        function navigateTo(index) {
+            clearSearch(false);
+            if (index === -1) currentPathArr = []; else currentPathArr = currentPathArr.slice(0, index + 1);
+            renderCurrentFolder();
+        }
+
+        function jumpToFolderFromSearch(pathString) {
+            const pathArray = pathString.split('||');
+            if(pathArray[0] === "ראשי") pathArray.shift();
+            currentPathArr = pathArray;
+            clearSearch(false);
+            renderCurrentFolder();
+        }
+
+        function renderCurrentFolder() {
+            let currentNode = fileSystem;
+            for (let folder of currentPathArr) { if(currentNode.children[folder]) currentNode = currentNode.children[folder]; }
+            
+            const breadcrumbsDiv = document.getElementById('breadcrumbsContainer');
+            let breadcrumbsHTML = `<button onclick="navigateTo(-1)" class="hover:bg-white/20 bg-white/10 px-4 py-2 rounded-xl flex items-center gap-2 transition duration-300 shadow-lg"><span class="text-xl">🏠</span> ראשי</button>`;
+            
+            currentPathArr.forEach((folder, index) => {
+                breadcrumbsHTML += `<span class="text-pink-500 font-bold mx-1">❯</span><button onclick="navigateTo(${index})" class="hover:bg-white/20 bg-transparent px-3 py-2 rounded-xl transition">${folder}</button>`;
+            });
+            breadcrumbsDiv.innerHTML = breadcrumbsHTML;
+            drawGrid(Object.values(currentNode.children));
+        }
+
+        function drawGrid(items) {
+            const gridDiv = document.getElementById('explorerGrid');
+            gridDiv.innerHTML = '';
+            
+            if (items.length === 0) { 
+                gridDiv.innerHTML = '<div class="col-span-full py-20 text-center text-gray-400 text-2xl animate-pulse">אין פה כלום... 🏜️</div>'; return; 
+            }
+            
+            items.sort((a, b) => {
+                if (a.type === "folder" && b.type !== "folder") return -1;
+                if (a.type !== "folder" && b.type === "folder") return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            items.forEach((item, i) => {
+                const delay = i > 20 ? 0 : i * 0.05; 
+                
+                if (item.type === "folder") {
+                    const pathStr = item.pathArr ? item.pathArr.join('||') : item.name;
+                    const safePathStr = pathStr.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                    const itemCount = Object.keys(item.children || {}).length;
+                    
+                    gridDiv.innerHTML += `
+                        <div onclick="jumpToFolderFromSearch('${safePathStr}')" class="tile-card glass rounded-3xl p-6 cursor-pointer flex flex-col items-center justify-center text-center aspect-square group animate-pop" style="animation-delay: ${delay}s">
+                            <div class="w-20 h-20 mb-4 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center group-hover:scale-110 transition">
+                                <span class="text-5xl drop-shadow-lg">📁</span>
+                            </div>
+                            <span class="font-extrabold text-white line-clamp-2 text-lg drop-shadow-md">${item.name}</span>
+                            <span class="text-xs text-purple-300 mt-2 bg-purple-900/50 px-3 py-1 rounded-full">${itemCount} פריטים</span>
+                        </div>`;
+                } else {
+                    let icon = "📄"; let colorClass = "from-gray-500 to-gray-700";
+                    if(item.type === "וידאו") { icon = "🎬"; colorClass = "from-blue-500 to-indigo-600"; }
+                    if(item.type === "משחק/תוכנה") { icon = "🎮"; colorClass = "from-green-400 to-emerald-600"; }
+                    if(item.type === "שמע") { icon = "🎧"; colorClass = "from-yellow-400 to-orange-500"; }
+                    
+                    const badge = item.isNew ? `<div class="absolute top-2 left-2 bg-pink-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md z-10">חדש!</div>` : '';
+
+                    gridDiv.innerHTML += `
+                        <a href="${item.link}" target="_blank" class="tile-card glass rounded-3xl cursor-pointer flex flex-col relative h-full aspect-[4/5] animate-pop group" style="animation-delay: ${delay}s">
+                            ${badge}
+                            <div class="h-2 w-full bg-gradient-to-r ${colorClass} rounded-t-3xl opacity-80 group-hover:opacity-100 transition"></div>
+                            <div class="p-6 flex flex-col items-center flex-grow justify-center text-center">
+                                <div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br ${colorClass} flex items-center justify-center mb-5 shadow-lg group-hover:rotate-12 transition">
+                                    <span class="text-3xl md:text-4xl filter drop-shadow-md">${icon}</span>
+                                </div>
+                                <h3 class="font-bold text-white text-sm md:text-md mb-2 line-clamp-3 leading-snug">${item.name}</h3>
+                            </div>
+                        </a>`;
+                }
+            });
+        }
+
+        // התיקון הגדול של החיפוש! הוספת המשתנה שחסר
+        function handleSearch() {
+            const searchInput = document.getElementById('searchInput');
+            if (!searchInput) return;
+            const searchTerm = searchInput.value.toLowerCase().trim(); // השורה שהייתה חסרה
+            
+            const breadcrumbs = document.getElementById('breadcrumbsContainer');
+            const searchHeader = document.getElementById('searchResultsHeader');
+
+            if (searchTerm === "") {
+                breadcrumbs.parentElement.classList.remove('hidden'); 
+                searchHeader.classList.add('hidden');
+                renderCurrentFolder(); 
+                return;
+            }
+            
+            breadcrumbs.parentElement.classList.add('hidden'); 
+            searchHeader.classList.remove('hidden');
+            document.getElementById('searchCount').innerText = "מחפש...";
+
+            let results = [];
+            for (let i = 0; i < allSearchableItems.length; i++) {
+                if (allSearchableItems[i].searchIndex.includes(searchTerm)) {
+                    results.push(allSearchableItems[i]);
+                }
+            }
+
+            const MAX_RESULTS = 100;
+            const totalFound = results.length;
+            const resultsToDisplay = results.slice(0, MAX_RESULTS);
+
+            let countText = `${totalFound} תוצאות`;
+            if (totalFound > MAX_RESULTS) countText += ` (מציג ${MAX_RESULTS}. נא למקד)`;
+            document.getElementById('searchCount').innerText = countText;
+
+            drawGrid(resultsToDisplay);
+        }
+
+        let searchTimeout = null;
+        document.getElementById('searchInput').addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => { handleSearch(); }, 400); 
+        });
+
+        function clearSearch(render = true) {
+            document.getElementById('searchInput').value = "";
+            document.getElementById('breadcrumbsContainer').parentElement.classList.remove('hidden');
+            document.getElementById('searchResultsHeader').classList.add('hidden');
+            if(render) renderCurrentFolder();
+        }
+    </script>
+</body>
+</html>
