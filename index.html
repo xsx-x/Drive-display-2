@@ -238,17 +238,18 @@
 
         function buildFileSystem(data) {
             fileSystem = { name: "ראשי", type: "folder", children: {} }; 
-            allSearchableItems =[];
-            newArrivals =[];
+            allSearchableItems = [];
+            newArrivals = [];
             const today = new Date();
 
             data.forEach(row => {
-                const pathStr = row["נתיב_תיקיה"] ? row["נתיב_תיקיה"].trim() : '';
-                const fileName = row["שם_קובץ"] ? row["שם_קובץ"].trim() : '';
-                const type = row["סוג"] ? row["סוג"].trim() : '';
-                const link = row["קישור"] ? row["קישור"].trim() : '';
-                const creationDate = row["תאריך_יצירה"] ? row["תאריך_יצירה"].trim() : '';
-                const thumb = row["תמונה_ממוזערת"] ? row["תמונה_ממוזערת"].trim() : '';
+                // שולפים את הנתונים לפי השמות המדויקים שמופיעים ב-JSON שלך
+                const pathStr = row["נתיב_תיקיה"] ? row["נתיב_תיקיה"].toString().trim() : '';
+                const fileName = row["שם_קובץ"] ? row["שם_קובץ"].toString().trim() : '';
+                const type = row["סוג"] ? row["סוג"].toString().trim() : '';
+                const link = row["קישור"] ? row["קישור"].toString().trim() : '';
+                const creationDate = row["תאריך_יצירה"] ? row["תאריך_יצירה"].toString().trim() : '';
+                const thumb = row["תמונה_ממוזערת"] ? row["תמונה_ממוזערת"].toString().trim() : '';
                 
                 if(!pathStr || !fileName) return;
 
